@@ -1,0 +1,8 @@
+{
+  "name": "Krishi Mitra AI",
+  "description": "An AI-powered chat assistant for farmers in India, providing comprehensive agricultural support from crop planning and health analysis to innovative tool solutions, with multilingual voice and text input.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
