@@ -1,91 +1,58 @@
+
 import { ChatSession } from '../types';
 
-const CHAT_HISTORY_DB_KEY = 'krishi_mitra_chat_history_db';
+const getChatHistoryKey = (username: string) => `krishi_mitra_chat_history_${username}`;
 
-type ChatHistoryDB = Record<string, ChatSession[]>;
-
-const database = {
-  read: (): ChatHistoryDB => {
-    try {
-      const dbJson = localStorage.getItem(CHAT_HISTORY_DB_KEY);
-      return dbJson ? JSON.parse(dbJson) : {};
-    } catch (error) {
-      console.error("Error reading chat history from localStorage:", error);
-      return {};
-    }
-  },
-  write: (db: ChatHistoryDB): void => {
-    try {
-      localStorage.setItem(CHAT_HISTORY_DB_KEY, JSON.stringify(db));
-    } catch (error) {
-      console.error("Error writing chat history to localStorage:", error);
-    }
-  }
+export const getChatHistory = async (username: string): Promise<ChatSession[]> => {
+    return new Promise((resolve) => {
+        const historyJson = localStorage.getItem(getChatHistoryKey(username));
+        const history: ChatSession[] = historyJson ? JSON.parse(historyJson) : [];
+        resolve(history.sort((a, b) => b.timestamp - a.timestamp));
+    });
 };
 
-/**
- * Retrieves all chat sessions for a specific user, sorted by the most recent.
- */
-export const getChatHistory = (username: string): ChatSession[] => {
-  const db = database.read();
-  const userHistory = db[username.toLowerCase()] || [];
-  return userHistory.sort((a, b) => b.timestamp - a.timestamp);
+export const saveChatSession = async (username: string, session: ChatSession): Promise<{ success: boolean }> => {
+    return new Promise(async (resolve) => {
+        const history = await getChatHistory(username);
+        const sessionIndex = history.findIndex(s => s.id === session.id);
+        if (sessionIndex > -1) {
+            history[sessionIndex] = session;
+        } else {
+            history.push(session);
+        }
+        localStorage.setItem(getChatHistoryKey(username), JSON.stringify(history));
+        resolve({ success: true });
+    });
 };
 
-/**
- * Retrieves a single chat session by its ID for a given user.
- */
-export const getChatSession = (username: string, sessionId: string): ChatSession | null => {
-  const history = getChatHistory(username);
-  return history.find(session => session.id === sessionId) || null;
+export const deleteChatSession = async (username: string, sessionId: string): Promise<{ success: boolean }> => {
+    return new Promise(async (resolve) => {
+        const history = await getChatHistory(username);
+        const filteredHistory = history.filter(s => s.id !== sessionId);
+        localStorage.setItem(getChatHistoryKey(username), JSON.stringify(filteredHistory));
+        resolve({ success: true });
+    });
 };
 
-/**
- * Saves or updates a chat session for a specific user.
- */
-export const saveChatSession = (username: string, session: ChatSession): void => {
-  const db = database.read();
-  const userHistory = db[username.toLowerCase()] || [];
-  
-  const existingIndex = userHistory.findIndex(s => s.id === session.id);
-  
-  if (existingIndex > -1) {
-    // Update existing session
-    userHistory[existingIndex] = session;
-  } else {
-    // Add new session
-    userHistory.push(session);
-  }
-  
-  db[username.toLowerCase()] = userHistory;
-  database.write(db);
+export const deleteAllChatSessions = async (username: string): Promise<{ success: boolean }> => {
+    return new Promise((resolve) => {
+        localStorage.removeItem(getChatHistoryKey(username));
+        resolve({ success: true });
+    });
 };
 
-/**
- * Deletes a single chat session for a specific user.
- */
-export const deleteChatSession = (username: string, sessionId: string): void => {
-  const db = database.read();
-  let userHistory = db[username.toLowerCase()] || [];
-  
-  userHistory = userHistory.filter(session => session.id !== sessionId);
-  
-  db[username.toLowerCase()] = userHistory;
-  database.write(db);
-};
-
-/**
- * Deletes all chat sessions for a specific user.
- */
-export const deleteAllChatSessions = (username: string): void => {
-  const db = database.read();
-  db[username.toLowerCase()] = [];
-  database.write(db);
-};
-
-/**
- * Retrieves the entire chat history database for all users. Used for admin stats.
- */
-export const getAllChatData = (): ChatHistoryDB => {
-    return database.read();
-};
+export const getAllChatSessions = async (): Promise<ChatSession[]> => {
+    return new Promise((resolve) => {
+        let allSessions: ChatSession[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('krishi_mitra_chat_history_')) {
+                const sessionsJson = localStorage.getItem(key);
+                if (sessionsJson) {
+                    allSessions = allSessions.concat(JSON.parse(sessionsJson));
+                }
+            }
+        }
+        resolve(allSessions);
+    });
+}

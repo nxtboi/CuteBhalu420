@@ -1,198 +1,120 @@
+
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
-// Use a variable to cache the initialized client.
-let aiInstance: GoogleGenAI | null = null;
-
-// Lazily initialize and cache the AI client.
-// This ensures `process.env.API_KEY` is read at the time of the first API call,
-// resolving potential timing issues, and prevents re-creating the client on every subsequent call.
-export const getAiClient = () => {
-    if (aiInstance) {
-        return aiInstance;
-    }
-
-    const API_KEY = process.env.API_KEY;
-    if (!API_KEY) {
-        throw new Error("API_KEY environment variable not set. Please ensure it is configured.");
-    }
-    aiInstance = new GoogleGenAI({ apiKey: API_KEY });
-    return aiInstance;
-};
-
-const fileToGenerativePart = (base64: string, mimeType: string) => {
-  return {
-    inlineData: {
-      data: base64,
-      mimeType,
-    },
-  };
-};
-
-export const generateResponse = async (prompt: string, imageBase64: string | null): Promise<string> => {
-  try {
-    // Get the client instance just before making the call.
-    const ai = getAiClient();
-    const model = 'gemini-3-flash-preview';
-
-    if (imageBase64) {
-      const imageMimeType = imageBase64.substring(5, imageBase64.indexOf(';'));
-      const imageData = imageBase64.split(',')[1];
-      const imagePart = fileToGenerativePart(imageData, imageMimeType);
-      
-      const response = await ai.models.generateContent({
-        model,
-        contents: { parts: [{ text: prompt }, imagePart] },
-      });
-      return response.text ?? "Sorry, I couldn't process that request.";
-
-    } else {
-      const response = await ai.models.generateContent({
-        model,
-        contents: prompt,
-      });
-      return response.text ?? "Sorry, I couldn't process that request.";
-    }
-  } catch (error) {
-    console.error("Error generating response from Gemini:", error);
-    throw new Error("Failed to communicate with the AI model. Please check your network connection and API key.");
-  }
-};
+// The API key is assumed to be available from the environment.
+const apiKey = process.env.API_KEY;
+if (!apiKey) {
+    console.warn("API_KEY environment variable not found. AI features will not work.");
+}
+const ai = new GoogleGenAI({ apiKey: apiKey! });
 
 /**
- * Generates a response from the AI model using streaming.
+ * Generates a response from the AI model using a streaming SDK call.
  * @param prompt The text prompt to send to the model.
  * @param imageBase64 Optional base64 encoded image data.
  * @param onChunk A callback function that receives text chunks as they are generated.
- * @param config Optional configuration for the generation request.
+ * @param options Optional configuration for the generation request, including model name.
  */
 export const generateResponseStream = async (
     prompt: string, 
     imageBase64: string | null,
     onChunk: (chunk: string) => void,
-    config?: any
+    options?: { model?: string, config?: any }
 ): Promise<void> => {
+    if (!apiKey) {
+        throw new Error("Gemini API key is not configured.");
+    }
+    const modelName = options?.model || 'gemini-3-pro-preview';
+
+    const contentParts: any[] = [];
+
+    if (prompt) {
+        contentParts.push({ text: prompt });
+    }
+
+    if (imageBase64) {
+        try {
+            const [header, data] = imageBase64.split(",", 2);
+            const mimeType = header.match(/:(.*?);/)?.[1];
+            if (!mimeType || !data) throw new Error("Invalid image format.");
+            contentParts.push({
+                inlineData: {
+                    mimeType,
+                    data,
+                },
+            });
+        } catch(e) {
+            console.error("Error processing image data:", e);
+            throw new Error("Could not process the uploaded image.");
+        }
+    }
+    
     try {
-        const ai = getAiClient();
-        const model = 'gemini-3-flash-preview';
-
-        const contents = imageBase64 
-            ? { parts: [
-                { text: prompt }, 
-                fileToGenerativePart(imageBase64.split(',')[1], imageBase64.substring(5, imageBase64.indexOf(';')))
-              ]}
-            : prompt;
-
         const responseStream = await ai.models.generateContentStream({
-            model,
-            contents,
-            config,
+            model: modelName,
+            contents: { parts: contentParts },
+            config: options?.config,
         });
 
         for await (const chunk of responseStream) {
-            const responseChunk = chunk as GenerateContentResponse;
-            if (responseChunk.text) {
-                onChunk(responseChunk.text);
+            const chunkResponse = chunk as GenerateContentResponse;
+            if (chunkResponse.text) {
+                onChunk(chunkResponse.text);
             }
         }
     } catch (error) {
-        console.error("Error generating streaming response from Gemini:", error);
-        throw new Error("Failed to communicate with the AI model. Please check your network connection and API key.");
+        console.error("Error in generateResponseStream:", error);
+        throw error;
     }
 };
 
-
-interface PlaygroundConfig {
-    prompt: string;
-    systemInstruction?: string;
-    temperature?: number;
-    topK?: number;
-    topP?: number;
-}
-
-export const generatePlaygroundResponse = async (config: PlaygroundConfig): Promise<string> => {
-    try {
-        const ai = getAiClient();
-        const model = 'gemini-3-flash-preview'; 
-
-        const response = await ai.models.generateContent({
-            model,
-            contents: config.prompt,
-            config: {
-                systemInstruction: config.systemInstruction,
-                temperature: config.temperature,
-                topK: config.topK,
-                topP: config.topP,
-            },
-        });
-
-        return response.text ?? "Sorry, the model did not return a response.";
-
-    } catch (error) {
-        console.error("Error in playground generation:", error);
-        throw new Error("Failed to get response from AI model. Please check your configuration and API key.");
-    }
-};
-
-export const generateCodeEditResponse = async (fullPrompt: string): Promise<string> => {
-    try {
-        const ai = getAiClient();
-        // Use a more powerful model for complex code generation tasks.
-        const model = 'gemini-3-pro-preview'; 
-
-        const response = await ai.models.generateContent({
-            model,
-            contents: fullPrompt,
-        });
-
-        return response.text ?? "Sorry, the model did not return a valid response.";
-    } catch (error) {
-        console.error("Error in code edit generation:", error);
-        throw new Error("Failed to get response from AI model. Please check your configuration, API key, and the prompt length.");
-    }
-};
-
+/**
+ * Generates a short title for a chat message.
+ * @param message The initial message of the chat.
+ */
 export const generateChatTitle = async (message: string): Promise<string> => {
+    if (!apiKey) {
+         console.error("Gemini API key is not configured.");
+         return "";
+    }
     try {
-        const ai = getAiClient();
-        const model = 'gemini-3-flash-preview';
-        const response = await ai.models.generateContent({
-            model,
-            contents: `Generate a very short (3-5 words) and descriptive title for a chat that starts with: "${message}". Return ONLY the title text, no quotes or labels.`,
+        const prompt = `Generate a very short (3-5 words) and descriptive title for a chat that starts with: "${message}". Return ONLY the title text, no quotes or labels.`;
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt
         });
-        return response.text?.trim().replace(/^"|"$/g, '') || "";
+        return response.text?.trim().replace(/"/g, '') || "";
     } catch (error) {
         console.error("Error generating chat title:", error);
         return "";
     }
 };
 
+/**
+ * Generates an image based on a prompt.
+ * @param prompt The text prompt for the image.
+ */
 export const generateImage = async (prompt: string): Promise<string | null> => {
-  try {
-    const ai = getAiClient();
-    const model = 'gemini-2.5-flash-image';
-    
-    const response = await ai.models.generateContent({
-      model,
-      contents: {
-          parts: [{ text: `Generate a realistic image of: ${prompt}` }]
-      }
-    });
+    if (!apiKey) {
+        console.error("Gemini API key is not configured.");
+        return null;
+    }
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [{ text: `Generate a realistic image of: ${prompt}` }] },
+        });
 
-    if (response.candidates?.[0]?.content?.parts) {
         for (const part of response.candidates[0].content.parts) {
             if (part.inlineData) {
-                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                const base64EncodeString: string = part.inlineData.data;
+                const imageUrl = `data:${part.inlineData.mimeType};base64,${base64EncodeString}`;
+                return imageUrl;
             }
         }
-    }
-    return null;
-  } catch (error: any) {
-    // Check for 429 specifically to avoid spamming the console with "Errors" when it's just a limit
-    if (error.message?.includes('429') || error.status === 'RESOURCE_EXHAUSTED') {
-        console.warn("Gemini Image Generation Quota Exceeded. Returning null to trigger fallback.");
-    } else {
+        return null;
+    } catch (error) {
         console.error("Error generating image:", error);
+        return null;
     }
-    return null;
-  }
 };
