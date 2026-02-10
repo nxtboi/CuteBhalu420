@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { User, LanguageCode } from '../types';
 import translations from '../services/translations';
-import { updateUser } from '../services/authService';
+import * as authService from '../services/authService';
 import { EyeIcon, EyeOffIcon } from './icons/Icons';
 
 interface ProfilePageProps {
@@ -117,25 +118,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, language, onUserUpdate 
             district,
             state,
             country,
-            pincode
+            pincode,
         };
-
+        
         if (newPassword) {
             updates.password = newPassword;
         }
         
-        const result = await updateUser(user.username, updates);
-
-        if (result.success && result.user) {
-            onUserUpdate(result.user);
+        try {
+            const updatedUser = await authService.updateUser(updates);
+            onUserUpdate(updatedUser);
             setSuccess(t.updateSuccessMessage);
             setNewPassword('');
             setConfirmPassword('');
-        } else {
-            setError(result.message || 'An unknown error occurred.');
+
+        } catch (err: any) {
+             setError(err.message || 'An unknown error occurred.');
+        } finally {
+            setIsLoading(false);
         }
-        
-        setIsLoading(false);
     };
 
   return (

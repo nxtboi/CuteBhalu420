@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { LanguageCode, ProductCategory, Product } from '../types';
 import translations from '../services/translations';
-import { searchProducts } from '../services/mockProducts';
+import { getProducts } from '../services/mockProducts';
 import ProductCard from './ProductCard';
 
 interface ShopPageProps {
@@ -11,18 +12,41 @@ interface ShopPageProps {
 const ShopPage: React.FC<ShopPageProps> = ({ language }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
-  
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const t = (translations.shopPage as any)[language];
   const t_categories = t.categories;
   
-  const categories = Object.keys(t_categories) as ProductCategory[];
+  const categories = Object.values(ProductCategory) as ProductCategory[];
 
-  const filteredProducts = useMemo(() => {
-    return searchProducts(searchTerm, selectedCategory);
+  useEffect(() => {
+    const fetchProducts = async () => {
+        setIsLoading(true);
+        try {
+            const fetchedProducts = await getProducts(searchTerm, selectedCategory);
+            setProducts(fetchedProducts);
+        } catch (error) {
+            console.error("Failed to fetch products:", error);
+            setProducts([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    // Debounce search input
+    const handler = setTimeout(() => {
+        fetchProducts();
+    }, 300);
+
+    return () => {
+        clearTimeout(handler);
+    };
   }, [searchTerm, selectedCategory]);
   
   const handleCategoryClick = (category: ProductCategory) => {
-    setSelectedCategory(prev => prev === category ? null : category);
+    const newCategory = selectedCategory === category ? null : category;
+    setSelectedCategory(newCategory);
     setSearchTerm(''); // Clear search when category changes
   };
 
@@ -65,9 +89,13 @@ const ShopPage: React.FC<ShopPageProps> = ({ language }) => {
 
         {/* Product Grid */}
         <div>
-            {filteredProducts.length > 0 ? (
+            {isLoading ? (
+                <div className="text-center py-16">
+                    <p className="text-gray-500">Loading products...</p>
+                </div>
+            ) : products.length > 0 ? (
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {filteredProducts.map((product) => (
+                    {products.map((product) => (
                         <ProductCard key={product.id} product={product} language={language} />
                     ))}
                 </div>

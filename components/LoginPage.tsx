@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { EyeIcon, EyeOffIcon } from './icons/Icons';
-import { login } from '../services/authService';
+import * as authService from '../services/authService';
 import { User, LanguageCode } from '../types';
 import translations from '../services/translations';
 import LanguageSelector from './LanguageSelector';
@@ -19,21 +20,28 @@ const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess, onSwitchToSignup, 
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const t = (translations.loginPage as any)[language];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (username.trim() && password.trim()) {
-      const result = await login(username, password, rememberMe);
-      if (result.success && result.user) {
-        onAuthSuccess(result.user);
-      } else {
-        setError(result.message || 'An unknown error occurred.');
-      }
-    } else {
+    setIsLoading(true);
+
+    if (!username.trim() || !password.trim()) {
       setError('Please enter both username and password.');
+      setIsLoading(false);
+      return;
+    }
+    
+    try {
+      const { user } = await authService.login(username, password);
+      onAuthSuccess(user);
+    } catch (err: any) {
+      setError(err.message || 'An unknown error occurred.');
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -136,9 +144,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess, onSwitchToSignup, 
                 <div>
                     <button
                         type="submit"
-                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        disabled={isLoading}
+                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-400"
                     >
-                        {t.loginButton}
+                        {isLoading ? 'Logging in...' : t.loginButton}
                     </button>
                 </div>
             </form>

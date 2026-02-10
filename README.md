@@ -1,4 +1,5 @@
-
+<div align="center">
+<img width="1200" height="475" alt="Krishi Mitra AI Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 
 # 🌾 Krishi Mitra AI
 
@@ -91,8 +92,8 @@ npm --version
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/nxtboi/CuteBhalu420.git
-cd CuteBhalu420
+git clone https://github.com/yourusername/krishi-mitra-ai.git
+cd krishi-mitra-ai
 ```
 
 ### 2. Install Dependencies
@@ -332,12 +333,19 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - **Community Contributors** - For their support and feedback
 - **Farmers & Agriculture Expert** - For feedback and requirements
 
+## 📞 Contact & Social
+
+- **Email**: support@krishimitra.co.in
+- **Website**: [Krishi Mitra AI](https://krishimitrai.com)
+- **AI Studio**: [View on AI Studio](https://ai.studio/apps/drive/1ZBegRoFadngHfbiZKiEbISuLPOahe4S4)
+
 ---
 
 <div align="center">
 
 Made with ❤️ for Indian Farmers
 
-
+![GitHub stars](https://img.shields.io/github/stars/yourusername/krishi-mitra-ai?style=social)
+![GitHub forks](https://img.shields.io/github/forks/yourusername/krishi-mitra-ai?style=social)
 
 </div>

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 import Dashboard from './components/Dashboard';
@@ -9,7 +10,7 @@ import IrrigationPlannerPage from './components/IrrigationPlannerPage';
 import Header from './components/Header';
 import AdminPage from './components/admin/AdminPage';
 import { User, LanguageCode } from './types';
-import { clearCurrentUser, getCurrentUser } from './services/authService';
+import * as authService from './services/authService';
 
 export type Page = 'dashboard' | 'chat' | 'profile' | 'shop' | 'irrigation';
 
@@ -19,24 +20,45 @@ interface AppProps {
 }
 
 const App: React.FC<AppProps> = ({ projectFiles, onUpdateFiles }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(getCurrentUser());
-  const [isAdmin, setIsAdmin] = useState<boolean>(currentUser?.username === 'admin');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // For initial auth check
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
   const [language, setLanguage] = useState<LanguageCode>('en');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
+  // Check for logged in user on initial load
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const user = await authService.getCurrentUser();
+        if (user) {
+          handleAuthSuccess(user);
+        }
+      } catch (error) {
+        console.error("Session check failed", error);
+        authService.logout(); 
+        setCurrentUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    checkAuth();
+  }, []);
+
+
   const handleAuthSuccess = (user: User) => {
     setCurrentUser(user);
-    if (user.username === 'admin') {
-      setIsAdmin(true);
-    } else {
-      setCurrentPage('dashboard');
+    const isAdminUser = user.username === 'admin';
+    setIsAdmin(isAdminUser);
+    if (!isAdminUser) {
+        setCurrentPage('dashboard');
     }
   };
   
   const handleLogout = () => {
-    clearCurrentUser();
+    authService.logout();
     setCurrentUser(null);
     setIsAdmin(false);
     setAuthPage('login');
@@ -56,6 +78,16 @@ const App: React.FC<AppProps> = ({ projectFiles, onUpdateFiles }) => {
   const handleViewChat = (sessionId: string) => {
     setActiveChatId(sessionId);
     setCurrentPage('chat');
+  }
+
+  if (isLoading) {
+      return (
+          <div className="flex items-center justify-center h-screen bg-gray-100">
+              <div className="text-center">
+                  <p className="text-lg text-gray-600">Loading Krishi Mitra AI...</p>
+              </div>
+          </div>
+      );
   }
 
   if (!currentUser) {

@@ -72,7 +72,7 @@ const IrrigationPlannerPage: React.FC<IrrigationPlannerPageProps> = ({ language 
             (chunk) => {
               setPlan(prevPlan => (prevPlan || '') + chunk);
             },
-            { thinkingConfig: { thinkingBudget: 0 } } // Disable thinking for a faster response.
+            { model: 'gemini-3-flash-preview' } // Use the faster model for planning
         );
     } catch (err: any) {
         setError(err.message || "An unexpected error occurred.");

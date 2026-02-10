@@ -7,21 +7,44 @@ interface SmartImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
 }
 
 const SmartImage: React.FC<SmartImageProps> = ({ src, alt, fallbackPrompt, className, ...props }) => {
-  const [imgSrc, setImgSrc] = useState<string | undefined>(src);
+  // FIX: Initialize with undefined and handle src logic in useEffect to support Blob URLs and prevent type errors.
+  const [imgSrc, setImgSrc] = useState<string | undefined>();
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasError, setHasError] = useState(false);
   const generationAttempted = useRef(false);
 
   useEffect(() => {
-    // If no src is provided initially, we treat it as an immediate need to generate
-    if (!src && fallbackPrompt) {
+    // FIX: This effect now correctly handles `src` being a string, a Blob, or undefined.
+    const currentSrc = src as (string | Blob | undefined);
+
+    // If no src is provided initially, we treat it as an immediate need to generate.
+    if (!currentSrc && fallbackPrompt) {
         setHasError(true); 
-    } else {
-        setImgSrc(src);
-        setHasError(false);
-        setIsGenerating(false);
-        generationAttempted.current = false;
+        return; // Early return
     }
+    
+    let objectUrl: string | undefined;
+
+    if (typeof currentSrc === 'string') {
+        setImgSrc(currentSrc);
+    } else if (typeof Blob !== 'undefined' && currentSrc instanceof Blob) {
+        objectUrl = URL.createObjectURL(currentSrc);
+        setImgSrc(objectUrl);
+    } else {
+        // If src is undefined or another type, clear imgSrc
+        setImgSrc(undefined);
+    }
+
+    setHasError(false);
+    setIsGenerating(false);
+    generationAttempted.current = false;
+    
+    // Cleanup function to revoke the object URL to prevent memory leaks.
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
   }, [src, fallbackPrompt]);
 
   // Effect to trigger generation when error state is active

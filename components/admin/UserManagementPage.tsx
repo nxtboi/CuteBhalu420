@@ -1,31 +1,38 @@
+
 import React, { useState, useEffect } from 'react';
-import { getAllUsers, deleteUser } from '../../services/authService';
+import * as authService from '../../services/authService';
 import { User } from '../../types';
 import { TrashIcon } from '../icons/Icons';
 
 const UserManagementPage: React.FC = () => {
-  const [users, setUsers] = useState<Omit<User, 'password'>[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     loadUsers();
   }, []);
 
-  const loadUsers = () => {
-    const allUsers = getAllUsers();
-    setUsers(allUsers);
+  const loadUsers = async () => {
+    try {
+        const allUsers = await authService.getAllUsers();
+        setUsers(allUsers);
+    } catch(error) {
+        console.error("Failed to load users:", error);
+        setFeedback({ type: 'error', message: 'Failed to load users.' });
+    }
   };
 
-  const handleDeleteUser = (username: string) => {
+  const handleDeleteUser = async (username: string) => {
     if (window.confirm(`Are you sure you want to delete the user "${username}"? This cannot be undone.`)) {
-      const result = deleteUser(username);
-      if (result.success) {
+      try {
+        await authService.deleteUser(username);
         setFeedback({ type: 'success', message: `User "${username}" has been deleted.` });
         loadUsers(); // Refresh the list
-      } else {
-        setFeedback({ type: 'error', message: result.message || 'Failed to delete user.' });
+      } catch (err: any) {
+        setFeedback({ type: 'error', message: err.message || 'Failed to delete user.' });
+      } finally {
+        setTimeout(() => setFeedback(null), 3000); // Clear feedback after 3 seconds
       }
-      setTimeout(() => setFeedback(null), 3000); // Clear feedback after 3 seconds
     }
   };
 

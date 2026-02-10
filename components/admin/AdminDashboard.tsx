@@ -1,7 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import { getAllUsers } from '../../services/authService';
-import { getAllChatData } from '../../services/chatHistoryService';
-import { User } from '../../types';
+import * as authService from '../../services/authService';
+import * as chatHistoryService from '../../services/chatHistoryService';
 import { UsersIcon, HistoryIcon } from '../icons/Icons';
 
 const AdminDashboard: React.FC = () => {
@@ -9,14 +9,17 @@ const AdminDashboard: React.FC = () => {
   const [totalChatSessions, setTotalChatSessions] = useState(0);
 
   useEffect(() => {
-    // Fetch total users
-    const users = getAllUsers();
-    setTotalUsers(users.length);
-
-    // Fetch total chat sessions
-    const chatData = getAllChatData();
-    const sessionCount = Object.values(chatData).reduce((acc, userSessions) => acc + userSessions.length, 0);
-    setTotalChatSessions(sessionCount);
+    const fetchStats = async () => {
+        try {
+            const users = await authService.getAllUsers();
+            const sessions = await chatHistoryService.getAllChatSessions();
+            setTotalUsers(users.length);
+            setTotalChatSessions(sessions.length);
+        } catch(error) {
+            console.error("Failed to fetch admin stats:", error);
+        }
+    }
+    fetchStats();
   }, []);
 
   return (

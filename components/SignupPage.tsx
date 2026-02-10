@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { EyeIcon, EyeOffIcon } from './icons/Icons';
-import { signup } from '../services/authService';
+import * as authService from '../services/authService';
 import { User, LanguageCode } from '../types';
 import translations from '../services/translations';
 import LanguageSelector from './LanguageSelector';
@@ -21,27 +22,35 @@ const SignupPage: React.FC<SignupPageProps> = ({ onAuthSuccess, onSwitchToLogin,
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const t = (translations.signupPage as any)[language];
   
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
     if (!fullName.trim() || !username.trim() || !phone.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('Please fill in all fields.');
+      setIsLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
+      setIsLoading(false);
       return;
     }
 
-    const result = await signup(fullName, username, phone, password);
-    if (result.success && result.user) {
-      onAuthSuccess(result.user);
-    } else {
-      setError(result.message || 'An unknown error occurred during sign up.');
+    try {
+        await authService.signup(fullName, username, phone, password);
+        // After successful signup, automatically log the user in
+        const { user } = await authService.login(username, password);
+        onAuthSuccess(user);
+    } catch(err: any) {
+        setError(err.message || 'An unknown error occurred during sign up.');
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -120,9 +129,10 @@ const SignupPage: React.FC<SignupPageProps> = ({ onAuthSuccess, onSwitchToLogin,
                 
                 <div>
                     <button type="submit"
-                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:-translate-y-0.5"
+                        disabled={isLoading}
+                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:-translate-y-0.5 disabled:bg-gray-400"
                     >
-                        {t.signupButton}
+                        {isLoading ? 'Creating Account...' : t.signupButton}
                     </button>
                 </div>
             </form>

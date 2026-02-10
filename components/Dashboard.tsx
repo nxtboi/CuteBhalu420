@@ -1,9 +1,10 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { Page } from '../App';
 import { RobotIcon, UserIcon, ShoppingCartIcon, ArrowRightIcon, LightbulbIcon, WaterDropIcon, HistoryIcon, TrashIcon } from './icons/Icons';
 import { User, LanguageCode, ChatSession } from '../types';
 import translations, { languages } from '../services/translations';
-import { getChatHistory, deleteChatSession, deleteAllChatSessions } from '../services/chatHistoryService';
+import * as chatHistoryService from '../services/chatHistoryService';
 
 interface DashboardProps {
   user: User;
@@ -18,8 +19,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate, onViewChat, lan
     const [greetingIndex, setGreetingIndex] = useState(0);
     
     useEffect(() => {
-        const history = getChatHistory(user.username);
-        setChatHistory(history);
+        const loadHistory = async () => {
+            try {
+                const history = await chatHistoryService.getChatHistory(user.username);
+                setChatHistory(history);
+            } catch (error) {
+                console.error("Failed to load chat history:", error);
+            }
+        };
+        loadHistory();
     }, [user.username]);
 
      useEffect(() => {
@@ -30,19 +38,31 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate, onViewChat, lan
         return () => clearInterval(intervalId); // Cleanup on component unmount
     }, []);
 
-    const handleDeleteChat = (sessionId: string) => {
+    const handleDeleteChat = async (sessionId: string) => {
         // Optimistically update UI
         setChatHistory(prev => prev.filter(session => session.id !== sessionId));
-        // Update storage
-        deleteChatSession(user.username, sessionId);
+        try {
+            await chatHistoryService.deleteChatSession(user.username, sessionId);
+        } catch (error) {
+            console.error("Failed to delete chat session:", error);
+            // Optionally, revert UI or show an error by reloading history
+            const history = await chatHistoryService.getChatHistory(user.username);
+            setChatHistory(history);
+        }
     };
 
-    const handleClearAllChats = () => {
+    const handleClearAllChats = async () => {
         if (window.confirm(t.clearAllConfirm)) {
             // Optimistically update UI
             setChatHistory([]);
-            // Update storage
-            deleteAllChatSessions(user.username);
+            try {
+                await chatHistoryService.deleteAllChatSessions(user.username);
+            } catch (error) {
+                console.error("Failed to clear all chat sessions:", error);
+                // Optionally, revert UI or show an error
+                const history = await chatHistoryService.getChatHistory(user.username);
+                setChatHistory(history);
+            }
         }
     };
 
