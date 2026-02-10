@@ -92,7 +92,7 @@ npm --version
 ### 1. Clone the Repository
 ```bash
 git clone https://github.com/nxtboi/CuteBhalu420.git
-cd krishi-mitra-ai
+cd CuteBhalu420
 ```
 
 ### 2. Install Dependencies
