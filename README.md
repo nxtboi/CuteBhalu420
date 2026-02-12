@@ -89,8 +89,8 @@ npm --version
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/Krishi-Mitra-AI.git
-cd krishi-mitra-ai
+git clone https://github.com/nxtboi/Krishi_Mitra_AI.git
+cd Krishi_Mitra_AI
 ```
 
 ### 2. Install Dependencies
