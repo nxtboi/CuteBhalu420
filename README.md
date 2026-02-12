@@ -89,7 +89,7 @@ npm --version
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/krishi-mitra-ai.git
+git clone https://github.com/yourusername/Krishi-Mitra-AI.git
 cd krishi-mitra-ai
 ```
 
